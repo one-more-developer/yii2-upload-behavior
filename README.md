@@ -1,3 +1,6 @@
+# Description #
+This is fork for yii-dream-team/yii2-upload-behavior from Yii Dream Team (http://yiidreamteam.com)
+
 # Yii2 file/image upload behavior for ActiveRecord #
  
 This package is the set of two similar behaviors. The first one allows you to keep the uploaded file as-is.
@@ -10,11 +13,11 @@ The preferred way to install this extension is through [composer](http://getcomp
 
 Either run
 
-    php composer.phar require --prefer-dist yii-dream-team/yii2-upload-behavior "*"
+    php composer.phar require --prefer-dist valiant/yii2-upload-behavior "*"
 
 or add
 
-    "yii-dream-team/yii2-upload-behavior": "*"
+    "valiant/yii2-upload-behavior": "*"
 
 to the `require` section of your composer.json.
  
@@ -29,8 +32,8 @@ Attach the behavior to your model class:
     {
         return [
             [
-                'class' => '\yiidreamteam\upload\FileUploadBehavior',
-                'attribute' => 'fileUpload',
+                'class' => '\valiant\behaviors\FileUploadBehavior',
+                'attribute' => 'attachment',
                 'filePath' => '@webroot/uploads/[[pk]].[[extension]]',
                 'fileUrl' => '/uploads/[[pk]].[[extension]]',
             ],
@@ -48,18 +51,19 @@ Possible path/url placeholders:
  * `[[model]]` - model class name
  * `[[pk]]` - value of the primary key 
  * `[[id]]` - the same as `[[pk]]`
- * `[[attribute_name]]` - attribute value, for example `[[attribute_ownerId]]`
- * `[[id_path]]` - id subdirectories structure (if model primary key is `12345`, placeholder value will be `1/2/3/4/5/0/0/0/0/0`
- * `[[basename]]` - original filename with extension
- * `[[filename]]` - original filename without extension
  * `[[extension]]` - original extension
-    
+ * `[[attribute]]` - attribute name
+ * `[[id_path]]` - id subdirectories structure (if model primary key is `12345`, placeholder value will be `1/2/3/4/5/0/0/0/0/0`)
+ * `[[id_hash]]` - id subdirectories structure by md5 hash (if model primary key is `12345`, md5 hash is `827ccb0eea8a706c4c34a16891f84e7b` placeholder value will be `8/27/ccb0eea8a706c4c34a16891f84e7b`)
+ * `[[id_hash_piece]]` - id hash dex piece, will be in range 0-255 (if model primary key is `12345`, md5 hash is `827ccb0eea8a706c4c34a16891f84e7b`, first 2 hex numbers is `82`, convert hexDex and placeholder value will be `130`)
+ * `[[attribute_name]]` - attribute value, for example `[[attribute_ownerId]]`
+
 Add validation rule:
 
     public function rules()
     {
         return [
-            ['fileUpload', 'file'],   
+            ['attachment', 'file'],
         ];
     }
 
@@ -76,7 +80,7 @@ File should be uploading fine.
 
 You can get uploaded file url using model call:
 
-    echo $model->getUploadedFileUrl('fileUpload');
+    echo $model->getUploadedFileUrl('attachment');
 
 ## ImageUploadBehavior ##
 
@@ -90,8 +94,8 @@ Attach the behavior to your model class:
     {
         return [
             [
-                 'class' => '\yiidreamteam\upload\ImageUploadBehavior',
-                 'attribute' => 'imageUpload',
+                 'class' => '\valiant\behaviors\ImageUploadBehavior',
+                 'attribute' => 'image',
                  'thumbs' => [
                      'thumb' => ['width' => 400, 'height' => 300],
                  ],
@@ -110,23 +114,25 @@ You can also use additional placeholders in path templates.
 Placeholder `[[foobar]]` will be replaced with appropriate placeholder value. 
 
 Possible path/url placeholders:
-
  * `[[model]]` - model class name
- * `[[pk]]` - value of the primary key 
+ * `[[pk]]` - value of the primary key
  * `[[id]]` - the same as `[[pk]]`
- * `[[attribute_name]]` - attribute value, for example `[[attribute_ownerId]]`
- * `[[id_path]]` - id subdirectories structure (if model primary key is `12345`, placeholder value will be `1/2/3/4/5/0/0/0/0/0`
- * `[[basename]]` - original filename with extension
- * `[[filename]]` - original filename without extension
  * `[[extension]]` - original extension
+ * `[[attribute]]` - attribute name
+ * `[[id_path]]` - id subdirectories structure (if model primary key is `12345`, placeholder value will be `1/2/3/4/5/0/0/0/0/0`)
+ * `[[id_hash]]` - id subdirectories structure by md5 hash (if model primary key is `12345`, md5 hash is `827ccb0eea8a706c4c34a16891f84e7b` placeholder value will be `8/27/ccb0eea8a706c4c34a16891f84e7b`)
+ * `[[id_hash_piece]]` - id hash dex piece, will be in range 0-255 (if model primary key is `12345`, md5 hash is `827ccb0eea8a706c4c34a16891f84e7b`, first 2 hex numbers is `82`, convert hexDex and placeholder value will be `130`)
+ * `[[attribute_name]]` - attribute value, for example `[[attribute_ownerId]]`
  * `[[profile]]` - thumbnail profile name, use it in thumbnail path/url
-    
+ * `[[width]]` - thumbnail width, use it in thumbnail path/url
+ * `[[height]]` - thumbnail height, use it in thumbnail path/url
+
 Add validation rule:
 
     public function rules()
     {
         return [
-            ['imageUpload', 'file', 'extensions' => 'jpeg, gif, png'],   
+            ['image', 'file', 'extensions' => 'jpg, gif, png'],
         ];
     }
 
@@ -143,26 +149,25 @@ File should be uploading fine.
 
 You can get uploaded image url using model call:
 
-    echo $model->getImageFileUrl('imageUpload');
+    echo $model->getImageFileUrl('image');
 
 You can specify default image for models without uploaded image:
 
-    echo $model->getImageFileUrl('imageUpload', '/images/empty.jpg');
+    echo $model->getImageFileUrl('image', '/images/empty.jpg');
 
 You can also get generated thumbnail image url:
 
-    echo $model->getThumbFileUrl('imageUpload', 'thumb');
+    echo $model->getThumbFileUrl('image', 'thumb');
 
 You can specify default thumbnail image for models without uploaded image:
   
-    echo $model->getThumbFileUrl('imageUpload', 'thumb', '/images/thumb_empty.jpg');
+    echo $model->getThumbFileUrl('image', 'thumb', '/images/thumb_empty.jpg');
 
 ## Licence ##
 
 MIT
-    
+
 ## Links ##
 
-* [Official site](http://yiidreamteam.com/yii2/upload-behavior)
-* [Source code on GitHub](https://github.com/yii-dream-team/yii2-upload-behavior)
-* [Composer package on Packagist](https://packagist.org/packages/yii-dream-team/yii2-upload-behavior)
+* [Source code on GitHub](https://github.com/valiant/yii2-upload-behavior)
+* [Composer package on Packagist](https://packagist.org/packages/valiant/yii2-upload-behavior)

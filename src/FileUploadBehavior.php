@@ -1,11 +1,13 @@
 <?php
 /**
- * @author Alexey Samoylov <alexey.samoylov@gmail.com>
- * @link http://yiidreamteam.com/yii2/upload-behavior
+ * @author Igor Prokofev <mr.igor.prokofev@gmail.com>
+ * @link https://github.com/one-more-developer/yii2-upload-behavior
  */
-namespace yiidreamteam\upload;
+
+namespace valiant\behaviors;
 
 use Yii;
+use yii\base\Behavior;
 use yii\base\Exception;
 use yii\base\InvalidCallException;
 use yii\db\ActiveRecord;
@@ -16,225 +18,250 @@ use yii\web\UploadedFile;
 
 /**
  * Class FileUploadBehavior
+ * @package valiant\behaviors
  *
  * @property ActiveRecord $owner
  */
-class FileUploadBehavior extends \yii\base\Behavior
+class FileUploadBehavior extends Behavior
 {
-    const EVENT_AFTER_FILE_SAVE = 'afterFileSave';
+	const EVENT_AFTER_FILE_SAVE = 'afterFileSave';
 
-    /** @var string Name of attribute which holds the attachment. */
-    public $attribute = 'upload';
-    /** @var string Path template to use in storing files.5 */
-    public $filePath = '@webroot/uploads/[[pk]].[[extension]]';
-    /** @var string Where to store images. */
-    public $fileUrl = '/uploads/[[pk]].[[extension]]';
-    /**
-     * @var string Attribute used to link owner model with it's parent
-     * @deprecated Use attribute_xxx placeholder instead
-     */
-    public $parentRelationAttribute;
-    /** @var \yii\web\UploadedFile */
-    protected $file;
+	/** @var string Name of attribute which holds the attachment. */
+	public $attribute = 'attachment';
 
-    /**
-     * @inheritdoc
-     */
-    public function events()
-    {
-        return [
-            ActiveRecord::EVENT_BEFORE_VALIDATE => 'beforeValidate',
-            ActiveRecord::EVENT_BEFORE_INSERT => 'beforeSave',
-            ActiveRecord::EVENT_BEFORE_UPDATE => 'beforeSave',
-            ActiveRecord::EVENT_AFTER_INSERT => 'afterSave',
-            ActiveRecord::EVENT_AFTER_UPDATE => 'afterSave',
-            ActiveRecord::EVENT_BEFORE_DELETE => 'beforeDelete',
-        ];
-    }
+	/** @var string Path template to use in storing files. */
+	public $filePath = '@webroot/uploads/[[pk]].[[extension]]';
 
-    /**
-     * Before validate event.
-     */
-    public function beforeValidate()
-    {
-        if ($this->owner->{$this->attribute} instanceof UploadedFile) {
-            $this->file = $this->owner->{$this->attribute};
-            return;
-        }
-        $this->file = UploadedFile::getInstance($this->owner, $this->attribute);
-        
-        if (empty($this->file)) {
-            $this->file = UploadedFile::getInstanceByName($this->attribute);
-        }
+	/** @var string Where to store images. */
+	public $fileUrl = '/uploads/[[pk]].[[extension]]';
 
-        if ($this->file instanceof UploadedFile) {
-            $this->owner->{$this->attribute} = $this->file;
-        }
-    }
+	/** @var UploadedFile */
+	protected $file;
 
-    /**
-     * Before save event.
-     *
-     * @throws \yii\base\InvalidConfigException
-     */
-    public function beforeSave()
-    {
-        if ($this->file instanceof UploadedFile) {
-            if (!$this->owner->isNewRecord) {
-                /** @var static $oldModel */
-                $oldModel = $this->owner->findOne($this->owner->primaryKey);
-                $oldModel->cleanFiles();
-            }
-            $this->owner->{$this->attribute} = $this->file->baseName . '.' . $this->file->extension;
-        } else { // Fix html forms bug, when we have empty file field
-            if (!$this->owner->isNewRecord && empty($this->owner->{$this->attribute}))
-                $this->owner->{$this->attribute} = ArrayHelper::getValue($this->owner->oldAttributes, $this->attribute, null);
-        }
-    }
+	/**
+	 * @inheritdoc
+	 */
+	public function events()
+	{
+		return [
+			ActiveRecord::EVENT_BEFORE_VALIDATE => 'beforeValidate',
+			ActiveRecord::EVENT_BEFORE_INSERT => 'beforeSave',
+			ActiveRecord::EVENT_BEFORE_UPDATE => 'beforeSave',
+			ActiveRecord::EVENT_AFTER_INSERT => 'afterSave',
+			ActiveRecord::EVENT_AFTER_UPDATE => 'afterSave',
+			ActiveRecord::EVENT_BEFORE_DELETE => 'beforeDelete',
+		];
+	}
 
-    /**
-     * Removes files associated with attribute
-     */
-    public function cleanFiles()
-    {
-        $path = $this->resolvePath($this->filePath);
-        @unlink($path);
-    }
+	/**
+	 * Before validate event.
+	 */
+	public function beforeValidate()
+	{
+		if ($this->owner->{$this->attribute} instanceof UploadedFile) {
+			$this->file = $this->owner->{$this->attribute};
+		} else {
+			$this->file = UploadedFile::getInstance($this->owner, $this->attribute);
 
-    /**
-     * Replaces all placeholders in path variable with corresponding values
-     *
-     * @param string $path
-     * @return string
-     */
-    public function resolvePath($path)
-    {
-        $path = Yii::getAlias($path);
+			if (empty($this->file)) {
+				$this->file = UploadedFile::getInstanceByName($this->attribute);
+			}
 
-        $pi = pathinfo($this->owner->{$this->attribute});
-        $fileName = ArrayHelper::getValue($pi, 'filename');
-        $extension = strtolower(ArrayHelper::getValue($pi, 'extension'));
+			if ($this->file instanceof UploadedFile) {
+				$this->owner->{$this->attribute} = $this->file;
+			}
+		}
+	}
 
-        return preg_replace_callback('|\[\[([\w\_/]+)\]\]|', function ($matches) use ($fileName, $extension) {
-            $name = $matches[1];
-            switch ($name) {
-                case 'extension':
-                    return $extension;
-                case 'filename':
-                    return $fileName;
-                case 'basename':
-                    return  $fileName . '.' . $extension;
-                case 'app_root':
-                    return Yii::getAlias('@app');
-                case 'web_root':
-                    return Yii::getAlias('@webroot');
-                case 'base_url':
-                    return Yii::getAlias('@web');
-                case 'model':
-                    $r = new \ReflectionClass($this->owner->className());
-                    return lcfirst($r->getShortName());
-                case 'attribute':
-                    return lcfirst($this->attribute);
-                case 'id':
-                case 'pk':
-                    $pk = implode('_', $this->owner->getPrimaryKey(true));
-                    return lcfirst($pk);
-                case 'id_path':
-                    return static::makeIdPath($this->owner->getPrimaryKey());
-                case 'parent_id':
-                    return $this->owner->{$this->parentRelationAttribute};
-            }
-            if (preg_match('|^attribute_(\w+)$|', $name, $am)) {
-                $attribute = $am[1];
-                return $this->owner->{$attribute};
-            }
-            return '[[' . $name . ']]';
-        }, $path);
-    }
+	/**
+	 * Before save event.
+	 *
+	 * @throws \yii\base\InvalidConfigException
+	 */
+	public function beforeSave()
+	{
+		if ($this->file instanceof UploadedFile) {
+			if (!$this->owner->isNewRecord) {
+				/** @var self $oldModel */
+				$oldModel = $this->owner->findOne($this->owner->primaryKey);
+				$oldModel->cleanFiles();
+			}
+			$this->owner->{$this->attribute} = $this->file->extension;
+		} else {
+			// Fix html forms bug, when we have empty file field
+			if (!$this->owner->isNewRecord && empty($this->owner->{$this->attribute})) {
+				$this->owner->{$this->attribute} = ArrayHelper::getValue($this->owner->oldAttributes, $this->attribute, null);
+			}
+		}
+	}
 
-    /**
-     * @param integer $id
-     * @return string
-     */
-    protected static function makeIdPath($id)
-    {
-        $id = is_array($id) ? implode('', $id) : $id;
-        $length = 10;
-        $id = str_pad($id, $length, '0', STR_PAD_RIGHT);
+	/**
+	 * Removes files associated with attribute
+	 */
+	public function cleanFiles()
+	{
+		$path = $this->resolvePath($this->filePath);
+		@unlink($path);
+	}
 
-        $result = [];
-        for ($i = 0; $i < $length; $i++)
-            $result[] = substr($id, $i, 1);
+	/**
+	 * Replaces all placeholders in path variable with corresponding values
+	 *
+	 * @param string $path
+	 * @return string
+	 */
+	public function resolvePath($path)
+	{
+		$path = Yii::getAlias($path);
+		$primaryKey = implode('_', $this->owner->getPrimaryKey(true));
+		$extension = strtolower($this->owner->{$this->attribute});
 
-        return implode('/', $result);
-    }
+		return preg_replace_callback('|\[\[([\w\_/]+)\]\]|', function ($matches) use ($primaryKey, $extension) {
+			$name = $matches[1];
+			$result = '[[' . $name . ']]';
+			switch ($name) {
+				case 'model':
+					$reflectionClass = new \ReflectionClass($this->owner->className());
+					$result = lcfirst($reflectionClass->getShortName());
+					break;
+				case 'id':
+				case 'pk':
+					$result = lcfirst($primaryKey);
+					break;
+				case 'extension':
+					$result = $extension;
+					break;
+				case 'attribute':
+					$result = lcfirst($this->attribute);
+					break;
+				case 'id_path':
+					$result = $this->makeIdPath($primaryKey);
+					break;
+				case 'id_hash':
+					$result = $this->makeIdHashPath($primaryKey);
+					break;
+				case 'id_hash_piece':
+					$result = $this->makeIdHashPiece($primaryKey);
+					break;
+				default:
+					if (preg_match('|^attribute_(\w+)$|', $name, $attributeMatches)) {
+						$attribute = $attributeMatches[1];
+						$result = $this->owner->{$attribute};
+					}
+					break;
+			}
+			return $result;
+		}, $path);
+	}
 
-    /**
-     * After save event.
-     */
-    public function afterSave()
-    {
-        if ($this->file instanceof UploadedFile) {
-            $path = $this->getUploadedFilePath($this->attribute);
-            FileHelper::createDirectory(pathinfo($path, PATHINFO_DIRNAME), 0775, true);
-            if (!$this->file->saveAs($path)) {
-                throw new Exception('File saving error.');
-            }
-            $this->owner->trigger(static::EVENT_AFTER_FILE_SAVE);
-        }
-    }
+	/**
+	 * @param mixed $id
+	 * @return string
+	 */
+	protected function makeIdPath($id)
+	{
+		$id = is_array($id) ? implode('', $id) : $id;
+		$length = 10;
+		$id = str_pad($id, $length, '0', STR_PAD_RIGHT);
 
-    /**
-     * Returns file path for attribute.
-     *
-     * @param string $attribute
-     * @return string
-     */
-    public function getUploadedFilePath($attribute)
-    {
-        $behavior = static::getInstance($this->owner, $attribute);
-        if (!$this->owner->{$attribute})
-            return '';
-        return $behavior->resolvePath($behavior->filePath);
-    }
+		$result = [];
+		for ($i = 0; $i < $length; $i++)
+			$result[] = substr($id, $i, 1);
 
-    /**
-     * Returns behavior instance for specified class and attribute
-     *
-     * @param ActiveRecord $model
-     * @param string $attribute
-     * @return static
-     */
-    public static function getInstance(ActiveRecord $model, $attribute)
-    {
-        foreach ($model->behaviors as $behavior) {
-            if ($behavior instanceof self && $behavior->attribute == $attribute)
-                return $behavior;
-        }
+		return implode('/', $result);
+	}
 
-        throw new InvalidCallException('Missing behavior for attribute ' . VarDumper::dumpAsString($attribute));
-    }
+	/**
+	 * @param mixed $id
+	 * @return string
+	 */
+	protected function makeIdHashPath($id)
+	{
+		$hash = md5($id);
+		return implode('/', [
+			substr($hash, 0, 1),
+			substr($hash, 1, 2),
+			substr($hash, 3),
+		]);
+	}
 
-    /**
-     * Before delete event.
-     */
-    public function beforeDelete()
-    {
-        $this->cleanFiles();
-    }
+	/**
+	 * @param mixed $id
+	 * @return number
+	 */
+	protected function makeIdHashPiece($id)
+	{
+		$hash = md5($id);
+		return hexdec(substr($hash, 0, 2));
+	}
 
-    /**
-     * Returns file url for the attribute.
-     *
-     * @param string $attribute
-     * @return string|null
-     */
-    public function getUploadedFileUrl($attribute)
-    {
-        if (!$this->owner->{$attribute})
-            return null;
+	/**
+	 * After save event.
+	 */
+	public function afterSave()
+	{
+		if ($this->file instanceof UploadedFile) {
+			$path = $this->getUploadedFilePath($this->attribute);
+			FileHelper::createDirectory(pathinfo($path, PATHINFO_DIRNAME), 0775, true);
+			if (!$this->file->saveAs($path)) {
+				throw new Exception('File saving error.');
+			}
+			$this->owner->trigger(static::EVENT_AFTER_FILE_SAVE);
+		}
+	}
 
-        $behavior = static::getInstance($this->owner, $attribute);
-        return $behavior->resolvePath($behavior->fileUrl);
-    }
+	/**
+	 * Returns file path for attribute.
+	 *
+	 * @param string $attribute
+	 * @return string
+	 */
+	public function getUploadedFilePath($attribute)
+	{
+		$behavior = static::getInstance($this->owner, $attribute);
+		return $this->owner->{$attribute} ? $behavior->resolvePath($behavior->filePath) : '';
+	}
+
+	/**
+	 * Returns behavior instance for specified class and attribute
+	 *
+	 * @param ActiveRecord $model
+	 * @param string $attribute
+	 * @throws \yii\base\InvalidCallException
+	 * @return static
+	 */
+	public static function getInstance(ActiveRecord $model, $attribute)
+	{
+		foreach ($model->behaviors as $behavior) {
+			if ($behavior instanceof self && $behavior->attribute == $attribute) {
+				return $behavior;
+			}
+		}
+
+		throw new InvalidCallException('Missing behavior for attribute ' . VarDumper::dumpAsString($attribute));
+	}
+
+	/**
+	 * Before delete event.
+	 */
+	public function beforeDelete()
+	{
+		$this->cleanFiles();
+	}
+
+	/**
+	 * Returns file url for the attribute.
+	 *
+	 * @param string $attribute
+	 * @return string|null
+	 */
+	public function getUploadedFileUrl($attribute)
+	{
+		if (!$this->owner->{$attribute}) {
+			return null;
+		}
+
+		$behavior = static::getInstance($this->owner, $attribute);
+		return $behavior->resolvePath($behavior->fileUrl);
+	}
 }

@@ -1,10 +1,10 @@
 <?php
 /**
- * @author Alexey Samoylov <alexey.samoylov@gmail.com>
- * @link http://yiidreamteam.com/yii2/upload-behavior
+ * @author Igor Prokofev <mr.igor.prokofev@gmail.com>
+ * @link https://github.com/one-more-developer/yii2-upload-behavior
  */
 
-namespace yiidreamteam\upload;
+namespace valiant\behaviors;
 
 use PHPThumb\GD;
 use yii\helpers\ArrayHelper;
@@ -12,132 +12,144 @@ use yii\helpers\FileHelper;
 
 /**
  * Class ImageUploadBehavior
+ * @package valiant\behaviors
  */
 class ImageUploadBehavior extends FileUploadBehavior
 {
-    public $attribute = 'image';
+	public $attribute = 'image';
 
-    public $createThumbsOnSave = true;
-    public $createThumbsOnRequest = false;
+	public $createThumbsOnSave = false;
+	public $createThumbsOnRequest = false;
 
-    /** @var array Thumbnail profiles, array of [width, height] */
-    public $thumbs = [];
+	/** @var array Thumbnail profiles, array of [width, height] */
+	public $thumbs = [];
 
-    /** @var string Path template for thumbnails. Please use the [[profile]] placeholder. */
-    public $thumbPath = '@webroot/images/[[profile]]_[[pk]].[[extension]]';
-    /** @var string Url template for thumbnails. */
-    public $thumbUrl = '/images/[[profile]]_[[pk]].[[extension]]';
+	/** @var string Path template to use in storing files. */
+	public $filePath = '@webroot/images/[[pk]].[[extension]]';
 
-    public $filePath = '@webroot/images/[[pk]].[[extension]]';
-    public $fileUrl = '/images/[[pk]].[[extension]]';
+	/** @var string Where to store images. */
+	public $fileUrl = '/images/[[pk]].[[extension]]';
 
-    /**
-     * @inheritdoc
-     */
-    public function events()
-    {
-        return ArrayHelper::merge(parent::events(), [
-            static::EVENT_AFTER_FILE_SAVE => 'afterFileSave',
-        ]);
-    }
+	/** @var string Path template for thumbnails. Please use the [[profile]] placeholder. */
+	public $thumbPath = '@webroot/images/[[profile]]_[[pk]].[[extension]]';
 
-    /**
-     * @inheritdoc
-     */
-    public function cleanFiles()
-    {
-        parent::cleanFiles();
-        foreach (array_keys($this->thumbs) as $profile) {
-            @unlink($this->getThumbFilePath($this->attribute, $profile));
-        }
-    }
+	/** @var string Url template for thumbnails. */
+	public $thumbUrl = '/images/[[profile]]_[[pk]].[[extension]]';
 
-    /**
-     * Resolves profile path for thumbnail profile.
-     *
-     * @param string $path
-     * @param string $profile
-     * @return string
-     */
-    public function resolveProfilePath($path, $profile)
-    {
-        $path = $this->resolvePath($path);
-        return preg_replace_callback('|\[\[([\w\_/]+)\]\]|', function ($matches) use ($profile) {
-            $name = $matches[1];
-            switch ($name) {
-                case 'profile':
-                    return $profile;
-            }
-            return '[[' . $name . ']]';
-        }, $path);
-    }
+	/**
+	 * @inheritdoc
+	 */
+	public function events()
+	{
+		return ArrayHelper::merge(parent::events(), [
+			static::EVENT_AFTER_FILE_SAVE => 'afterFileSave',
+		]);
+	}
 
-    /**
-     * @param string $attribute
-     * @param string $profile
-     * @return string
-     */
-    public function getThumbFilePath($attribute, $profile = 'thumb')
-    {
-        $behavior = static::getInstance($this->owner, $attribute);
-        return $behavior->resolveProfilePath($behavior->thumbPath, $profile);
-    }
+	/**
+	 * @inheritdoc
+	 */
+	public function cleanFiles()
+	{
+		parent::cleanFiles();
+		foreach (array_keys($this->thumbs) as $profile) {
+			@unlink($this->getThumbFilePath($this->attribute, $profile));
+		}
+	}
 
-    /**
-     *
-     * @param string $attribute
-     * @param string|null $emptyUrl
-     * @return string|null
-     */
-    public function getImageFileUrl($attribute, $emptyUrl = null)
-    {
-        if (!$this->owner->{$attribute})
-            return $emptyUrl;
+	/**
+	 * Resolves profile path for thumbnail profile.
+	 *
+	 * @param string $path
+	 * @param string $profile
+	 * @return string
+	 */
+	public function resolveProfilePath($path, $profile)
+	{
+		$path = $this->resolvePath($path);
+		return preg_replace_callback('|\[\[([\w\_/]+)\]\]|', function ($matches) use ($profile) {
+			$name = $matches[1];
+			$result = '[[' . $name . ']]';
+			switch ($name) {
+				case 'profile':
+					$result = $profile;
+					break;
+				case 'width':
+				case 'height':
+					$result = ArrayHelper::getValue($this->thumbs[$profile], $name, '-');
+					break;
+			}
+			return $result;
+		}, $path);
+	}
 
-        return $this->getUploadedFileUrl($attribute, $emptyUrl);
-    }
+	/**
+	 * @param string $attribute
+	 * @param string $profile
+	 * @return string
+	 */
+	public function getThumbFilePath($attribute, $profile = 'thumb')
+	{
+		$behavior = static::getInstance($this->owner, $attribute);
+		return $behavior->resolveProfilePath($behavior->thumbPath, $profile);
+	}
 
-    /**
-     * @param string $attribute
-     * @param string $profile
-     * @param string|null $emptyUrl
-     * @return string|null
-     */
-    public function getThumbFileUrl($attribute, $profile = 'thumb', $emptyUrl = null)
-    {
-        if (!$this->owner->{$attribute})
-            return $emptyUrl;
+	/**
+	 *
+	 * @param string $attribute
+	 * @param string|null $emptyUrl
+	 * @return string|null
+	 */
+	public function getImageFileUrl($attribute, $emptyUrl = null)
+	{
+		return $this->owner->{$attribute} ? $this->getUploadedFileUrl($attribute, $emptyUrl) : $emptyUrl;
+	}
 
-        $behavior = static::getInstance($this->owner, $attribute);
-        if ($behavior->createThumbsOnRequest)
-            $behavior->createThumbs();
-        return $behavior->resolveProfilePath($behavior->thumbUrl, $profile);
-    }
+	/**
+	 * @param string $attribute
+	 * @param string $profile
+	 * @param string|null $emptyUrl
+	 * @return string|null
+	 */
+	public function getThumbFileUrl($attribute, $profile = 'thumb', $emptyUrl = null)
+	{
+		if (!$this->owner->{$attribute}) {
+			return $emptyUrl;
+		}
 
-    /**
-     * After file save event handler.
-     */
-    public function afterFileSave()
-    {
-        if ($this->createThumbsOnSave == true)
-            $this->createThumbs();
-    }
+		$behavior = static::getInstance($this->owner, $attribute);
+		if ($behavior->createThumbsOnRequest) {
+			$behavior->createThumbs();
+		}
 
-    /**
-     * Creates image thumbnails
-     */
-    public function createThumbs()
-    {
-        $path = $this->getUploadedFilePath($this->attribute);
-        foreach ($this->thumbs as $profile => $config) {
-            $thumbPath = static::getThumbFilePath($this->attribute, $profile);
-            if (!is_file($thumbPath)) {
-                /** @var GD $thumb */
-                $thumb = new GD($path);
-                $thumb->adaptiveResize($config['width'], $config['height']);
-                FileHelper::createDirectory(pathinfo($thumbPath, PATHINFO_DIRNAME), 0775, true);
-                $thumb->save($thumbPath);
-            }
-        }
-    }
+		return $behavior->resolveProfilePath($behavior->thumbUrl, $profile);
+	}
+
+	/**
+	 * After file save event handler.
+	 */
+	public function afterFileSave()
+	{
+		if ($this->createThumbsOnSave) {
+			$this->createThumbs();
+		}
+	}
+
+	/**
+	 * Creates image thumbnails
+	 */
+	public function createThumbs()
+	{
+		$path = $this->getUploadedFilePath($this->attribute);
+		foreach ($this->thumbs as $profile => $config) {
+			$thumbPath = static::getThumbFilePath($this->attribute, $profile);
+			if (!is_file($thumbPath)) {
+				/** @var GD $thumb */
+				$thumb = new GD($path);
+				$thumb->adaptiveResize($config['width'], $config['height']);
+				FileHelper::createDirectory(pathinfo($thumbPath, PATHINFO_DIRNAME), 0775, true);
+				$thumb->save($thumbPath);
+			}
+		}
+	}
 }
