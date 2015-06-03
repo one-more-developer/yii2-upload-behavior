@@ -169,5 +169,5 @@ MIT
 
 ## Links ##
 
-* [Source code on GitHub](https://github.com/valiant/yii2-upload-behavior)
+* [Source code on GitHub](https://github.com/one-more-developer/yii2-upload-behavior)
 * [Composer package on Packagist](https://packagist.org/packages/valiant/yii2-upload-behavior)
