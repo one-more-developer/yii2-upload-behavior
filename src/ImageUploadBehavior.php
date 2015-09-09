@@ -7,6 +7,7 @@
 namespace valiant\behaviors;
 
 use PHPThumb\GD;
+use yii\base\InvalidConfigException;
 use yii\helpers\ArrayHelper;
 use yii\helpers\FileHelper;
 
@@ -146,7 +147,18 @@ class ImageUploadBehavior extends FileUploadBehavior
 			if (!is_file($thumbPath)) {
 				/** @var GD $thumb */
 				$thumb = new GD($path);
-				$thumb->adaptiveResize($config['width'], $config['height']);
+				if (isset($config['width']) && isset($config['height'])) {
+					$thumb->adaptiveResize($config['width'], $config['height']);
+				}
+				else if(!isset($config['height'])) {
+					$thumb->resize($config['width']);
+				}
+				else if(!isset($config['width'])) {
+					$thumb->resize($config['width']);
+				}
+				else {
+					throw new InvalidConfigException('Either "width" or "height" properties must be specified.');
+				}
 				FileHelper::createDirectory(pathinfo($thumbPath, PATHINFO_DIRNAME), 0775, true);
 				$thumb->save($thumbPath);
 			}
