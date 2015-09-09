@@ -98,6 +98,8 @@ Attach the behavior to your model class:
                  'attribute' => 'image',
                  'thumbs' => [
                      'thumb' => ['width' => 400, 'height' => 300],
+                     'albumThumb' => ['width' => 200],
+                     'albumLogo' => ['height' => 500],
                  ],
                  'filePath' => '@webroot/images/[[pk]].[[extension]]',
                  'fileUrl' => '/images/[[pk]].[[extension]]',
