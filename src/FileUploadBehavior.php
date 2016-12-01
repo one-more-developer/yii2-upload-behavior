@@ -82,9 +82,10 @@ class FileUploadBehavior extends Behavior
 	{
 		if ($this->file instanceof UploadedFile) {
 			if (!$this->owner->isNewRecord) {
-				/** @var self $oldModel */
+				/** @var ActiveRecord $oldModel */
 				$oldModel = $this->owner->findOne($this->owner->primaryKey);
-				$oldModel->cleanFiles();
+				$behavior = static::getInstance($oldModel, $this->attribute);
+				$behavior->cleanFiles();
 			}
 			$this->owner->{$this->attribute} = $this->file->extension;
 		} else {
